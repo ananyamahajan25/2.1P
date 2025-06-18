@@ -1,0 +1,69 @@
+#include <WiFiNINA.h>
+#include <ThingSpeak.h>
+#include <DHT.h>
+
+// Wi-Fi credentials (keep private!)
+char ssid[] = "DODO-166E";        // Wi-Fi network name
+char pass[] = "EJTZG2WUNN";       // Wi-Fi password
+
+WiFiClient client;
+unsigned long myChannelNumber = 2870189;                 // ThingSpeak Channel ID
+const char *myWriteAPIKey = "8XEVD5PFDR9392WD";          // ThingSpeak Write API Key
+
+#define DHTPIN 2                // DHT sensor connected to digital pin 2
+#define DHTTYPE DHT11           // DHT 11 sensor type
+DHT dht(DHTPIN, DHTTYPE);
+
+void setup() {
+  Serial.begin(9600);
+  dht.begin();
+
+  Serial.println(F("Connecting to Wi-Fi..."));
+  WiFi.begin(ssid, pass);
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(1000);
+    Serial.println(F("Still connecting..."));
+  }
+
+  Serial.println(F("Connected to Wi-Fi!"));
+  Serial.print(F("SSID: "));
+  Serial.println(WiFi.SSID());
+  Serial.print(F("IP Address: "));
+  Serial.println(WiFi.localIP());
+
+  ThingSpeak.begin(client);
+}
+
+void loop() {
+  float temperature = dht.readTemperature();
+  float humidity = dht.readHumidity();
+
+  if (isnan(temperature) || isnan(humidity)) {
+    Serial.println(F("Error reading from DHT sensor!"));
+    return;
+  }
+
+  Serial.print(F("Temperature: "));
+  Serial.print(temperature);
+  Serial.println(F(" °C"));
+
+  Serial.print(F("Humidity: "));
+  Serial.print(humidity);
+  Serial.println(F(" %"));
+
+  // Set data fields on ThingSpeak
+  ThingSpeak.setField(1, temperature);
+  ThingSpeak.setField(2, humidity);
+
+  // Send data to ThingSpeak
+  int status = ThingSpeak.writeFields(myChannelNumber, myWriteAPIKey);
+  if (status == 200) {
+    Serial.println(F("Data sent to ThingSpeak successfully."));
+  } else {
+    Serial.print(F("Failed to send data. Error code: "));
+    Serial.println(status);
+  }
+
+  delay(60000);  // Wait 1 minute before sending the next reading
+}
